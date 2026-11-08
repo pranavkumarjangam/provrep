@@ -4,3 +4,6 @@ __pycache__/
 data/
 artifacts/
 *.pyc
+
+# bundles staged during setup
+*.zip
