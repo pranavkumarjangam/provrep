@@ -1,0 +1,17 @@
+# Full Hetionet (all 2.25M edges) on a 4 GB laptop GPU, e.g. RTX 3050.
+# Uses the compact message-passing path (scorer/rgcn.py), estimated ~2 GB of VRAM.
+# If you hit "CUDA out of memory", add:  --set scorer.hidden_dim=64
+inherit: default.yaml
+
+paths:
+  work_dir: artifacts/gpu          # keeps the CPU-trained model in artifacts/ untouched
+
+data:
+  drop_metaedges: []               # keep everything, including anatomy expression and GO edges
+
+scorer:
+  hidden_dim: 128
+  num_bases: 16
+  epochs: 800
+  patience: 150
+  device: cuda

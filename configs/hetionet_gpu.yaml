@@ -1,0 +1,12 @@
+# Full-size run on real Hetionet for a GPU machine (e.g. Colab / lab server).
+inherit: default.yaml
+
+data:
+  drop_metaedges: []           # keep the anatomy-gene expression edges
+
+scorer:
+  hidden_dim: 128
+  num_bases: 16
+  epochs: 800
+  patience: 150
+  device: cuda

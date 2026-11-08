@@ -1,0 +1,25 @@
+provrep - quick start on Windows
+================================
+
+1. Double-click  setup_windows.bat   (once; ~5-10 min; creates conda env "provrep")
+2. Double-click  run_demo.bat        (triages rheumatoid arthritis and migraine)
+3. Double-click  start_api.bat       (opens the API docs at http://127.0.0.1:8000/docs)
+
+Your PC has an NVIDIA RTX 3050 (4 GB). For GPU use instead:
+1. Double-click  setup_gpu.bat       (instead of setup_windows.bat; installs CUDA PyTorch)
+2. Double-click  train_gpu.bat       (full-graph training, all 2.25M edges -> artifacts\gpu)
+   then triage with:  provrep -c configs/hetionet_rtx3050.yaml triage "disease"
+
+The trained real-Hetionet model is already in artifacts\ - no retraining needed.
+Retrain / re-evaluate (Anaconda Prompt, after "conda activate provrep"):
+   provrep -c configs/default.yaml train
+   provrep -c configs/default.yaml calibrate
+   provrep -c configs/default.yaml eval
+
+Use real Claude agents (you set your own key):
+   set ANTHROPIC_API_KEY=sk-ant-...
+   provrep -c configs/default.yaml --set agents.llm.provider=anthropic triage "migraine"
+
+The raw Hetionet files are NOT included (only the built graph). To rebuild from
+scratch, put the 3 downloaded files in data\raw\ and run: provrep -c configs/default.yaml build-kg
+See README.md for everything else.

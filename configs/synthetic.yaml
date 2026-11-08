@@ -1,0 +1,24 @@
+# Synthetic Hetionet-format knowledge graph for offline development and CI.
+# Same file formats as real Hetionet, so the whole pipeline is exercised end to end.
+inherit: default.yaml
+
+paths:
+  raw_dir: data/synthetic
+  work_dir: artifacts/synthetic
+
+data:
+  source: synthetic
+  drop_metaedges: []
+  split:
+    val_frac: 0.2              # more validation diseases -> more calibration data
+  synthetic:
+    seed: 7
+    n_genes: 800
+    n_pathways: 50
+    n_diseases: 80
+    n_compounds: 500
+    n_side_effects: 120
+
+
+scorer:
+  eval_every: 5

@@ -1,0 +1,85 @@
+# Default configuration for real Hetionet v1.0 + PharmacotherapyDB.
+# Every path is relative to the working directory the CLI is run from.
+
+paths:
+  raw_dir: data/raw          # downloaded source files (provrep download)
+  work_dir: artifacts        # built KG, checkpoints, calibrator, reports
+
+data:
+  source: hetionet           # hetionet | synthetic
+  # Metaedges dropped before message passing, to make CPU training feasible:
+  # the anatomy-gene expression edges (~1.5M of Hetionet's 2.25M), the GO
+  # annotation edges (GpBP/GpCC/GpMF, ~730k) and gene regulation (Gr>G, ~266k).
+  # Pathway membership (GpPW) and gene interactions (GiG, GcG) are kept.
+  # configs/hetionet_gpu.yaml keeps everything.
+  drop_metaedges: [AeG, AdG, AuG, GpBP, GpCC, GpMF, "Gr>G"]
+  target_metaedge: CtD       # Compound-treats-Disease: what Stage 1 predicts
+  split:
+    strategy: disease_holdout   # random | disease_holdout | temporal
+    val_frac: 0.2
+    test_frac: 0.2
+    seed: 13
+    # Only used by strategy=temporal: a TSV with columns
+    # compound_id, disease_id, year (e.g. first approval year from DrugCentral).
+    dates_file: null
+    temporal_cutoff_year: 2010
+
+scorer:
+  hidden_dim: 64
+  num_layers: 2
+  num_bases: 8
+  dropout: 0.1
+  lr: 0.01
+  weight_decay: 0.0
+  epochs: 600
+  min_epochs: 100                # no early stopping before this
+  patience: 150                  # epochs without val-MAP improvement
+  neg_per_pos: 8
+  inductive: true                # compounds/diseases represented by their biology, not free embeddings
+  target_message_passing: compound_side  # none | compound_side | both  (see scorer/train.py:message_edges)
+  select_metric: recall@100      # Stage 1 feeds a top-200 funnel, so select checkpoints on wide recall
+  ensemble:
+    enabled: true                # rank-average R-GCN + popularity prior + gene overlap (scorer/ensemble.py)
+    select_metric: recall@200    # ensemble weights chosen on validation diseases
+  aux_weight: 1.0                # multi-relational link-prediction loss on the other metaedges
+  aux_edges_per_relation: 2000
+  eval_every: 10                 # validation MAP every N epochs
+  hard_negative_weight: 2.0      # weight on known non-indications (NOT pairs)
+  supervision_edge_frac: 0.3     # CtD edges hidden from message passing each epoch
+  seed: 13
+  device: cpu
+
+filters:
+  stage1_top_k: 200
+  shortlist_k: 20
+  dwpc_damping: 0.4
+  degeneracy_min_mechanistic_share: 0.25
+  max_side_effects: null         # e.g. 500 to prune compounds with extreme SE burden
+  contraindications_file: null   # optional TSV: compound_id, disease_id, reason
+
+agents:
+  enabled: true
+  llm:
+    provider: offline            # offline | anthropic
+    model: claude-sonnet-4-5     # used when provider=anthropic (set ANTHROPIC_API_KEY)
+    max_tokens: 1500
+    temperature: 0.0
+  verifier: auto                 # auto | hf | llm | lexical
+  hf_nli_model: cross-encoder/nli-deberta-v3-base
+  proponent_budget: 12           # max evidence items the Proponent may retrieve
+  falsifier_budget: 12           # separate budget for the Falsifier
+  max_paths_per_metapath: 4
+  pubmed:
+    enabled: false               # needs access to eutils.ncbi.nlm.nih.gov
+    max_results: 5
+    email: null                  # NCBI asks for a contact email
+    api_key: null
+
+arbitration:
+  hub_degree_quantile: 0.99      # genes above this degree quantile are "hubs"
+  hub_evidence_weight: 0.5
+  confidence_threshold: 0.3      # candidates below this calibrated prob are not returned (see eval sweep)
+
+eval:
+  ks: [10, 20, 50, 100]
+  max_eval_diseases: null        # cap for quick runs

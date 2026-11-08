@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>provrep — drug-repurposing audit</title>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  :root {
+    --bg:#f6f7f9; --card:#fff; --ink:#1a1f26; --muted:#667085; --line:#e5e8ec;
+    --teal:#1a7a6e; --blue:#4f81bd; --orange:#e07b24; --green:#1a7a4f; --red:#b42318;
+    --chip:#eef2f7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0f1319; --card:#171c24; --ink:#e7ebf0; --muted:#9aa5b1; --line:#2a313b;
+            --chip:#222a35; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+         font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; line-height:1.5; }
+  a { color:var(--blue); }
+  .wrap { max-width:1000px; margin:0 auto; padding:16px; }
+  header.top { display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; margin:8px 0 4px; }
+  header.top h1 { font-size:20px; margin:0; }
+  .sub { color:var(--muted); font-size:13px; }
+  .status { margin-left:auto; font-size:12px; color:var(--muted); }
+  .dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:5px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px;
+          padding:14px 16px; margin:12px 0; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  input[type=text] { flex:1; min-width:180px; padding:10px 12px; border:1px solid var(--line);
+         border-radius:9px; background:var(--card); color:var(--ink); font-size:15px; }
+  button { padding:10px 16px; border:0; border-radius:9px; background:var(--teal); color:#fff;
+           font-size:14px; font-weight:600; cursor:pointer; }
+  button.ghost { background:var(--chip); color:var(--ink); }
+  button:disabled { opacity:.5; cursor:default; }
+  label.tog { font-size:13px; color:var(--muted); display:flex; align-items:center; gap:6px; }
+  .suggest { border:1px solid var(--line); border-radius:9px; margin-top:6px; overflow:hidden; }
+  .suggest div { padding:8px 12px; cursor:pointer; font-size:14px; display:flex; justify-content:space-between; }
+  .suggest div:hover { background:var(--chip); }
+  .banner { padding:10px 14px; border-radius:9px; font-size:14px; margin:8px 0; }
+  .banner.warn { background:rgba(224,123,36,.14); border:1px solid var(--orange); }
+  .banner.ok { background:rgba(26,122,110,.12); border:1px solid var(--teal); }
+  .cand { border:1px solid var(--line); border-radius:10px; margin:8px 0; overflow:hidden; }
+  .cand > .head { display:flex; align-items:center; gap:10px; padding:10px 12px; cursor:pointer; }
+  .cand > .head:hover { background:var(--chip); }
+  .rank { width:26px; color:var(--muted); font-variant-numeric:tabular-nums; text-align:right; }
+  .cname { font-weight:600; flex:1; }
+  .pbar { width:120px; height:8px; background:var(--chip); border-radius:5px; overflow:hidden; }
+  .pbar > i { display:block; height:100%; background:var(--teal); }
+  .pct { width:44px; text-align:right; font-variant-numeric:tabular-nums; font-size:13px; }
+  .tier { font-size:11px; font-weight:700; padding:2px 8px; border-radius:20px; text-transform:uppercase; letter-spacing:.3px; }
+  .tier.strong { background:rgba(26,122,79,.16); color:var(--green); }
+  .tier.moderate { background:rgba(79,129,189,.16); color:var(--blue); }
+  .tier.weak { background:rgba(224,123,36,.16); color:var(--orange); }
+  .tier.reject { background:rgba(180,35,24,.14); color:var(--red); }
+  .flag { font-size:11px; color:var(--orange); border:1px solid var(--orange); border-radius:20px; padding:1px 7px; }
+  .known { font-size:11px; color:var(--green); border:1px solid var(--green); border-radius:20px; padding:1px 7px; }
+  .detail { padding:4px 14px 14px; border-top:1px solid var(--line); font-size:14px; }
+  .rubric { display:grid; grid-template-columns:1fr 1fr; gap:6px 18px; margin:8px 0; }
+  .rubric .m { font-size:12px; color:var(--muted); }
+  .mini { height:6px; background:var(--chip); border-radius:4px; overflow:hidden; }
+  .mini > i { display:block; height:100%; }
+  .claim { border-left:3px solid var(--line); padding:6px 10px; margin:6px 0; background:var(--chip); border-radius:0 8px 8px 0; }
+  .claim.sup { border-color:var(--green); }
+  .claim.ref { border-color:var(--red); }
+  .claim.fail { opacity:.6; }
+  .ev { font-size:12.5px; color:var(--muted); margin:3px 0 0 8px; }
+  .gate { font-size:11px; font-weight:600; }
+  .gate.entailment { color:var(--green); } .gate.contradiction { color:var(--red); }
+  .gate.neutral,.gate.missing { color:var(--orange); }
+  h3 { margin:14px 0 4px; font-size:14px; } h4 { margin:10px 0 2px; font-size:13px; color:var(--muted); }
+  details.pruned summary { cursor:pointer; color:var(--muted); font-size:13px; }
+  .prow { font-size:13px; padding:3px 0; display:flex; gap:8px; }
+  .prow .why { color:var(--muted); }
+  .err { color:var(--red); }
+  .foot { color:var(--muted); font-size:12px; margin:18px 0; }
+  code { background:var(--chip); padding:1px 5px; border-radius:5px; font-size:12px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useCallback } = React;
+const api = (p) => (location.protocol === "file:" ? "http://127.0.0.1:8000" : "") + p;
+const pct = (x) => x == null ? "—" : Math.round(x * 100) + "%";
+const titleCase = (s) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+
+function Bar({ v, color }) {
+  return <div className="mini"><i style={{ width: Math.max(0, Math.min(1, v || 0)) * 100 + "%", background: color }} /></div>;
+}
+
+function Rubric({ s }) {
+  const items = [
+    ["Mechanistic plausibility", s.mechanistic_plausibility, "var(--teal)"],
+    ["Evidence quality", s.evidence_quality, "var(--blue)"],
+    ["Counter-evidence", s.counter_evidence_strength, "var(--orange)"],
+    ["Safety concern", s.safety_concern, "var(--red)"],
+  ];
+  return <div className="rubric">{items.map(([k, v, c]) =>
+    <div key={k}><div className="m">{k}: {pct(v)}</div><Bar v={v} color={c} /></div>)}</div>;
+}
+
+function Claims({ brief }) {
+  const ev = {}; (brief.evidence || []).forEach(e => ev[e.id] = e);
+  const render = (g, i) => {
+    const c = g.claim, cls = c.stance === "supports" ? "sup" : "ref";
+    return (
+      <div key={i} className={"claim " + cls + (g.passed ? "" : " fail")}>
+        <div>{c.stance === "supports" ? "✓ " : "✕ "}{c.text}
+          {!g.passed && <span className="gate neutral"> — blocked: {g.reason}</span>}</div>
+        {c.evidence_ids.map(id => ev[id] && (
+          <div key={id} className="ev">
+            {ev[id].url ? <a href={ev[id].url} target="_blank">{ev[id].text}</a> : ev[id].text}
+            {(g.results || []).filter(r => r.evidence_id === id).map((r, j) =>
+              <span key={j} className={"gate " + r.label}> [{r.label} {r.score.toFixed(2)}]</span>)}
+          </div>
+        ))}
+      </div>
+    );
+  };
+  const sup = (brief.claims || []).filter(g => g.claim.stance === "supports");
+  const ref = (brief.claims || []).filter(g => g.claim.stance === "refutes");
+  return (
+    <div>
+      <h4>The case for ({sup.filter(g => g.passed).length} verified)</h4>
+      {sup.length ? sup.map(render) : <div className="ev">none</div>}
+      <h4>The case against ({ref.filter(g => g.passed).length} verified)</h4>
+      {ref.length ? ref.map(render) : <div className="ev">none</div>}
+    </div>
+  );
+}
+
+function Candidate({ rc, knownSet }) {
+  const [open, setOpen] = useState(false);
+  const c = rc.candidate, b = rc.brief, v = b && b.verdict;
+  const known = knownSet && knownSet.has(c.compound_id);
+  return (
+    <div className="cand">
+      <div className="head" onClick={() => setOpen(o => !o)}>
+        <span className="rank">{rc.rank}</span>
+        <span className="cname">{c.compound_name}</span>
+        {known && <span className="known">known indication</span>}
+        {c.degenerate && <span className="flag">similarity-driven</span>}
+        {v && <span className={"tier " + v.tier}>{v.tier}</span>}
+        <div className="pbar"><i style={{ width: pct(rc.probability) }} /></div>
+        <span className="pct">{pct(rc.probability)}</span>
+      </div>
+      {open && (
+        <div className="detail">
+          <div className="sub">Stage-1 rank #{c.stage1_rank} · {c.n_targets} targets · {c.n_side_effects} side effects
+            {c.mechanistic_share != null && <> · {pct(c.mechanistic_share)} of path support is mechanistic</>}</div>
+          {v && <>
+            <h3>Referee verdict: {titleCase(v.tier)} ({pct(v.overall)})</h3>
+            <Rubric s={v.scores} />
+            <div className="ev" style={{ marginLeft: 0 }}>{v.rationale}</div>
+          </>}
+          {b ? <Claims brief={b} /> :
+            <div className="sub">No agent brief (this run was Stage 1–2 only).</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Results({ res }) {
+  const knownSet = new Set((res._known || []));
+  const shown = res.shortlist || [];
+  const settings = res.settings || {};
+  return (
+    <div>
+      <div className="card">
+        <div className="row">
+          <h1 style={{ margin: 0, fontSize: 18 }}>{titleCase(res.disease_name)}</h1>
+          <span className="sub">{res.disease_id}</span>
+          <span className="status">{settings.llm || "agents off"} · {settings.verifier || ""} ·
+            calibrator: {settings.calibrator || "none"}</span>
+        </div>
+        {res.abstained
+          ? <div className="banner warn">Abstained: nothing cleared the confidence threshold of {pct(res.threshold)}.
+              The shortlist is shown below for inspection.</div>
+          : <div className="banner ok">{res.recommendations.length} recommendation(s) at confidence ≥ {pct(res.threshold)}.</div>}
+      </div>
+      <div className="card">
+        <h3 style={{ marginTop: 0 }}>Ranked shortlist ({shown.length}) — click any drug for its evidence</h3>
+        {shown.map((rc, i) => <Candidate key={i} rc={rc} knownSet={knownSet} />)}
+      </div>
+      {res.pruned && res.pruned.length > 0 && (
+        <div className="card">
+          <details className="pruned">
+            <summary>{res.pruned.length} candidates pruned before review</summary>
+            {res.pruned.map((p, i) =>
+              <div key={i} className="prow"><span>#{p.stage1_rank} {p.compound_name}</span>
+                <span className="why">— {p.reason.replace(/_/g, " ")}</span></div>)}
+          </details>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function App() {
+  const [health, setHealth] = useState(null);
+  const [q, setQ] = useState("");
+  const [sugg, setSugg] = useState([]);
+  const [useAgents, setUseAgents] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [res, setRes] = useState(null);
+  const [err, setErr] = useState("");
+
+  useEffect(() => {
+    fetch(api("/health")).then(r => r.json()).then(setHealth).catch(() => setHealth({ offline: true }));
+  }, []);
+
+  const search = useCallback((text) => {
+    setQ(text); setErr("");
+    if (text.length < 2) { setSugg([]); return; }
+    fetch(api("/diseases?limit=8&q=" + encodeURIComponent(text)))
+      .then(r => r.json()).then(setSugg).catch(() => setSugg([]));
+  }, []);
+
+  const run = useCallback((disease) => {
+    setBusy(true); setErr(""); setSugg([]); setRes(null);
+    fetch(api("/triage"), {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ disease, use_agents: useAgents }),
+    }).then(async r => {
+      if (!r.ok) throw new Error((await r.json()).detail || r.statusText);
+      const summ = await r.json();
+      const full = await (await fetch(api("/triage/" + summ.id))).json();
+      setRes(full);
+    }).catch(e => setErr(String(e.message || e))).finally(() => setBusy(false));
+  }, [useAgents]);
+
+  const loadFile = (ev) => {
+    const f = ev.target.files[0]; if (!f) return;
+    const r = new FileReader();
+    r.onload = () => { try { setRes(JSON.parse(r.result)); setErr(""); } catch (e) { setErr("Bad JSON file"); } };
+    r.readAsText(f);
+  };
+
+  return (
+    <div className="wrap">
+      <header className="top">
+        <h1>provrep</h1>
+        <span className="sub">provenance-grounded drug repurposing — audit console</span>
+        <span className="status">
+          {health == null ? "checking…" :
+            health.offline ? <><span className="dot" style={{ background: "var(--orange)" }} />API offline — load a JSON file</> :
+            <><span className="dot" style={{ background: "var(--teal)" }} />
+              {health.nodes?.toLocaleString()} nodes · {health.edges?.toLocaleString()} edges</>}
+        </span>
+      </header>
+
+      <div className="card">
+        <div className="row">
+          <input type="text" value={q} placeholder="Disease name, e.g. rheumatoid arthritis"
+            onChange={e => search(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && q && run(q)} />
+          <label className="tog"><input type="checkbox" checked={useAgents}
+            onChange={e => setUseAgents(e.target.checked)} /> agents</label>
+          <button disabled={busy || !q} onClick={() => run(q)}>{busy ? "Running…" : "Triage"}</button>
+          <label className="tog" style={{ cursor: "pointer" }}>
+            <span className="ghost" style={{ padding: "8px 12px", borderRadius: 9 }}>Load JSON</span>
+            <input type="file" accept=".json" style={{ display: "none" }} onChange={loadFile} />
+          </label>
+        </div>
+        {sugg.length > 0 && (
+          <div className="suggest">
+            {sugg.map(s => <div key={s.id} onClick={() => { setQ(s.name); run(s.name); }}>
+              <span>{titleCase(s.name)}</span>
+              <span className="sub">{s.known_indications} known</span></div>)}
+          </div>
+        )}
+        {err && <div className="banner warn err">{err}</div>}
+        {busy && <div className="sub" style={{ marginTop: 8 }}>
+          Scoring every drug, filtering, running the agents, calibrating… this can take a few seconds.</div>}
+      </div>
+
+      {res && <Results res={res} />}
+
+      <div className="foot">
+        Confidence is the calibrated probability from Stage 4. “Similarity-driven” flags a drug whose
+        support is mostly resemblance to known treatments rather than mechanism. Every claim shown was
+        checked against its cited source; blocked claims are struck through. Not for clinical use.
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
